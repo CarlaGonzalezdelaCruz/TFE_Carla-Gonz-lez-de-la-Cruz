@@ -242,3 +242,433 @@ bcftools view -S SAS.txt UGT1A1_1000G_filtered.vcf.gz -Oz -o UGT1A1_1000G_filter
 bcftools index UGT1A1_1000G_filtered_SAS.vcf.gz
 
 
+#Una vez tenemos los archivos de las variantes relevantes por población, hacemos el análisis de desequilibrio de ligamiento.
+# Instalacion de paquetes necesarios
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(c("SNPRelate", "gdsfmt"))
+# carga de librerias 
+library(SNPRelate)
+library(gdsfmt)
+setwd(utils::choose.dir())
+# Hacemos el análisis para variantes conn MAF > 0.25%
+# 1. Abrir el archivo
+genofile <- snpgdsOpen("EUR.gds")
+
+# 2. SELECCIONAR SNPs con filtro estricto MAF > 0.25
+# Esto dejará solo las variantes MUY comunes
+snp_seleccionados <- snpgdsSelectSNP(genofile, maf=0.25, missing.rate=0.05)
+
+# 3. EXTRAER LOS NOMBRES REALES (rsID)
+# Primero sacamos la lista completa de rsIDs que hay en el archivo
+lista_completa_rsids <- read.gdsn(index.gdsn(genofile, "snp.rs.id"))
+
+# Ahora sacamos la lista de TODOS los IDs numéricos
+lista_completa_ids <- read.gdsn(index.gdsn(genofile, "snp.id"))
+
+# Filtramos los rsIDs para que coincidan EXACTAMENTE con los SNPs que pasaron el filtro 0.25
+nombres_para_grafico <- lista_completa_rsids[lista_completa_ids %in% snp_seleccionados]
+
+# 4. CALCULAR MATRIZ DE LD
+ld_obj <- snpgdsLDMat(genofile, snp.id=snp_seleccionados, method="r", slide=0)
+matrix_final <- ld_obj$LD^2
+
+# 5. ASIGNAR NOMBRES
+colnames(matrix_final) <- nombres_para_grafico
+rownames(matrix_final) <- nombres_para_grafico
+
+# 6. CERRAR
+snpgdsClose(genofile)
+#graficar
+corrplot(matrix_final, 
+         method = "color", 
+         type = "upper", 
+         tl.col = "black", 
+         tl.cex = 0.7,      # Tamaño de letra de los rsID
+         addgrid.col = "gray", 
+         main = "DL en variantes del gen UGT1A1 en población EUROPEA con MAF > 0.25",
+         mar = c(0,0,2,0))
+# A continuacion vemos cuales son las variantes con MAF >0.25 en Europa y comparamos con el resto de poblaciones
+genofile <- snpgdsOpen("EUR.gds")
+
+# 2. Filtro MAF > 0.25
+snp_sel <- snpgdsSelectSNP(genofile, maf=0.25, missing.rate=0.05)
+
+# 3. EXTRAER DATOS (Forzamos la lectura de rsID y de Posición)
+ids_numericos <- read.gdsn(index.gdsn(genofile, "snp.id"))
+rsids_vcf <- read.gdsn(index.gdsn(genofile, "snp.rs.id"))
+posiciones <- read.gdsn(index.gdsn(genofile, "snp.position"))
+
+# 4. CREAR ETIQUETAS ÚNICAS
+# Si el rsID es vacío o ".", usamos la posición genómica (Chr2:pos)
+etiquetas <- ifelse(rsids_vcf == "" | rsids_vcf == ".", 
+                    paste0("2:", posiciones), 
+                    rsids_vcf)
+
+# 5. FILTRAR ETIQUETAS PARA EL GRÁFICO
+nombres_finales <- etiquetas[ids_numericos %in% snp_sel]
+
+# 6. CALCULAR LD
+ld_obj <- snpgdsLDMat(genofile, snp.id=snp_sel, method="r", slide=0)
+matrix_eur <- ld_obj$LD^2
+colnames(matrix_eur) <- nombres_finales
+rownames(matrix_eur) <- nombres_finales
+
+snpgdsClose(genofile)
+# 7. Graficar
+corrplot(matrix_eur, 
+         method = "color", 
+         type = "upper", 
+         tl.col = "black", 
+         tl.cex = 0.7,      # Tamaño de letra de los rsID
+         addgrid.col = "gray", 
+         main = "DL en variantes del gen UGT1A1 en población EUROPEA con MAF > 0.25",
+         mar = c(0,0,2,0))
+# Hacemos lo mismo en poblacion Africana
+# Sustituye el nombre entre comillas por el nombre REAL de tu archivo VCF africano
+snpgdsVCF2GDS("UGT1A1_1000G_filtered_AFR.vcf.gz", "AFR.gds", method="biallelic.only")
+# 1. Abrir AFR
+genofile_afr <- snpgdsOpen("AFR.gds")
+
+# 2. USAR LOS MISMOS SNPs QUE EN EUR (Usamos snp_sel que guardamos antes)
+ld_obj_afr <- snpgdsLDMat(genofile_afr, snp.id=snp_sel, method="r", slide=0)
+matrix_afr <- ld_obj_afr$LD^2
+
+# 3. Ponemos los mismos nombres para que la comparación sea visualmente idéntica
+colnames(matrix_afr) <- nombres_finales
+rownames(matrix_afr) <- nombres_finales
+
+snpgdsClose(genofile_afr)
+
+#VISUALIZAR AMBOS GRAFICOS 
+par(mfrow=c(1,2)) # Divide el gráfico en 2 columnas
+
+library(corrplot)
+# Gráfico EUR
+corrplot(matrix_eur, method="color", type="upper", tl.cex=0.6, main="EUR (MAF > 0.2)")
+
+# Gráfico AFR
+corrplot(matrix_afr, method="color", type="upper", tl.cex=0.6, main="AFR (Mismos SNPs)")
+
+#CONVERTIR LAS OTRAS TRES POBLACIONES
+# Convertimos las 3 poblaciones restantes
+snpgdsVCF2GDS("UGT1A1_1000G_filtered_EAS.vcf.gz", "EAS.gds", method="biallelic.only")
+snpgdsVCF2GDS("UGT1A1_1000G_filtered_AMR.vcf.gz", "AMR.gds", method="biallelic.only")
+snpgdsVCF2GDS("UGT1A1_1000G_filtered_SAS.vcf.gz", "SAS.gds", method="biallelic.only")
+
+# codigo comparaito de todas las poblaciones
+obtener_matriz <- function(archivo_gds, snps, etiquetas) {
+  g <- snpgdsOpen(archivo_gds)
+  ld <- snpgdsLDMat(g, snp.id=snps, method="r", slide=0)
+  m <- ld$LD^2
+  colnames(m) <- etiquetas
+  rownames(m) <- etiquetas
+  snpgdsClose(g)
+  return(m)
+}
+
+# Calculamos las matrices restantes
+matrix_afr <- obtener_matriz("AFR.gds", snp_sel, nombres_finales)
+matrix_eas <- obtener_matriz("EAS.gds", snp_sel, nombres_finales)
+matrix_amr <- obtener_matriz("AMR.gds", snp_sel, nombres_finales)
+matrix_sas <- obtener_matriz("SAS.gds", snp_sel, nombres_finales)
+
+# Configuramos el panel (2 filas, 3 columnas)
+par(mfrow = c(2, 3), mar = c(2, 2, 4, 2))
+
+# Función para graficar mostrando los nombres de las variantes
+dibujar_con_nombres <- function(mat, titulo) {
+  corrplot(mat, 
+           method = "color", 
+           type = "upper", 
+           tl.col = "black",   # Color del texto
+           tl.cex = 0.5,      # Tamaño de la letra (ajústalo si son muchos SNPs)
+           tl.srt = 45,       # Rotación de las etiquetas a 45 grados
+           tl.pos = "lt",     # 'lt' coloca las etiquetas arriba y a la izquierda
+           main = titulo, 
+           cl.lim = c(0, 1))
+}
+
+# Dibujamos las 5 poblaciones
+dibujar_con_nombres(matrix_eur, "EUR (MAF > 0.25)")
+dibujar_con_nombres(matrix_afr, "AFR")
+dibujar_con_nombres(matrix_eas, "EAS")
+dibujar_con_nombres(matrix_amr, "AMR")
+dibujar_con_nombres(matrix_sas, "SAS")
+
+# Volver a 1 solo gráfico
+par(mfrow = c(1, 1))
+
+# Creamos un PDF de los gráficos para que tenga una mejor calidad y no se corten los ejes:
+CREACION DE UN PDF DONDE SE MUESTREN TODAS LAS GRAFICAS SIN QUE SE CORTEN #######
+
+
+# 1. Definimos el nombre del archivo y el tamaño (grande para que quepa todo)
+pdf("Comparativa_LD_UGT1A1_Completa.pdf", width = 15, height = 10)
+
+# 2. Configuramos el panel (2 filas, 3 columnas) con márgenes más amplios
+par(mfrow = c(2, 3), mar = c(4, 4, 6, 2))
+
+# Función optimizada para que no se corten los rsID
+dibujar_tfm <- function(mat, titulo) {
+  corrplot(mat, 
+           method = "color", 
+           type = "upper", 
+           tl.col = "black", 
+           tl.cex = 0.8,      # Texto más legible
+           tl.srt = 90,       # Rotación vertical para que ocupen menos ancho
+           tl.pos = "lt",     # Etiquetas arriba y a la izquierda
+           diag = FALSE,      # Quitar la diagonal para limpiar el gráfico
+           main = titulo, 
+           mar = c(0, 0, 4, 0), # Espacio para el título
+           cl.lim = c(0, 1))
+}
+
+# 3. Dibujamos cada una
+dibujar_tfm(matrix_eur, "EUROPE (EUR)")
+dibujar_tfm(matrix_afr, "AFRICA (AFR)")
+dibujar_tfm(matrix_eas, "EAST ASIA (EAS)")
+dibujar_tfm(matrix_amr, "ADMIXED AMERICAS (AMR)")
+dibujar_tfm(matrix_sas, "SOUTH ASIA (SAS)")
+
+# 4. Cerramos el PDF
+dev.off()
+
+## 4. ANALISIS DE DESEQUILIBRIO DE LIGAMIENTO Y FRECUENCIAS DE VARIANTES INMPORTANTES EN CLINICA: rs8175347, rs4148323, rs887829 y rs6717546. 
+# 1. Filtrar nel archivo original vcf de 1000Genomes para cada poblacion, sin tener en cuenta un MAF. 
+ bcftools view -S EUR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.EURcomplet.vcf.gz
+bcftools view -S AFR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.AFRcomplet.vcf.gz
+bcftools view -S AMR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.AMRcomplet.vcf.gz
+bcftools view -S EAS.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.EAScomplet.vcf.gz
+bcftools view -S SAS.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.SAScomplet.vcf.gz
+
+# Indexar
+for pop in EUR AFR AMR EAS SAS
+do
+  bcftools index UGT1A1.${pop}complet.vcf.gz
+done
+
+# 2. Calcular el LD de cada poblacion
+#Convertir todos los VCF a GDS para que los trabaje R. 
+library(SNPRelate)
+
+snpgdsVCF2GDS("UGT1A1.EURcomplet.vcf.gz", "EUR.gds", method="copy.num.of.ref")
+snpgdsVCF2GDS("UGT1A1.AFRcomplet.vcf.gz", "AFR.gds", method="copy.num.of.ref")
+snpgdsVCF2GDS("UGT1A1.AMRcomplet.vcf.gz", "AMR.gds", method="copy.num.of.ref")
+snpgdsVCF2GDS("UGT1A1.EAScomplet.vcf.gz", "EAS.gds", method="copy.num.of.ref")
+snpgdsVCF2GDS("UGT1A1.SAScomplet.vcf.gz", "SAS.gds", method="copy.num.of.ref")
+
+
+# empezar con poblacion EUR
+gen_eur <- snpgdsOpen("EUR.gds")
+# ver que las posiciones eraan dentro del archivo
+pos <- read.gdsn(index.gdsn(gen_eur, "snp.position"))
+range(pos) #comprobar que tiene toda la region de UGT1A1
+ids <- read.gdsn(index.gdsn(gen_eur, "snp.id"))
+# ver si estan las posiciones que me interesan
+mis_posiciones <- c(
+  234668879,
+  234668570, 
+  234669144,
+  234682119
+)
+ids_sel <- ids[pos %in% mis_posiciones]
+ids_sel
+length(ids_sel)
+# Calculo de LD
+ld <- snpgdsLDMat(gen_eur,
+                  snp.id = ids_sel,
+                  method = "r",
+                  slide = 0)
+
+mat_ld <- ld$LD^2
+
+# Añadir etiquetas
+labels <- paste0("chr2:", pos[pos %in% mis_posiciones])
+
+colnames(mat_ld) <- rownames(mat_ld) <- labels
+# Heatmap
+library(corrplot)
+
+corrplot(mat_ld,
+         method = "color",
+         type = "upper",
+         tl.col = "black",
+         tl.cex = 0.8,
+         main = "DL de Variantes relevantes en clínica en población Europea",
+         mar = c(0,0,3,0))
+
+snpgdsClose(gen_eur)
+# AHORA VAMOS A HACERLO PARA EL RESTO DE POBLACIONES, Y PARA NO REPETIR CÓDIGO, AJUSTAMOS: 
+gen_afr <- snpgdsOpen("AFR.gds")
+#ver que las posiciones eraan dentro del archivo
+pos <- read.gdsn(index.gdsn(gen_afr, "snp.position"))
+range(pos) #comprobar que tiene toda la region de UGT1A1
+ids <- read.gdsn(index.gdsn(gen_afr, "snp.id"))
+# ver si estan las posiciones que me interesan
+mis_posiciones <- c(
+  234668879,
+  234668570, 
+  234669144,
+  234682119
+)
+ids_sel_afr <- ids[pos %in% mis_posiciones]
+ids_sel_afr
+length(ids_sel)
+# Calculo de LD
+ld_afr <- snpgdsLDMat(gen_afr,
+                  snp.id = ids_sel_afr,
+                  method = "r",
+                  slide = 0)
+
+mat_ld_afr <- ld_afr$LD^2
+
+# Añadir etiquetas
+labels <- paste0("chr2:", pos[pos %in% mis_posiciones])
+
+colnames(mat_ld_afr) <- rownames(mat_ld_afr) <- labels
+# Heatmap
+library(corrplot)
+
+corrplot(mat_ld_afr,
+         method = "color",
+         type = "upper",
+         tl.col = "black",
+         tl.cex = 0.8,
+         main = "DL de Variantes relevantes en clínica en población Africana",
+         mar = c(0,0,3,0))
+
+snpgdsClose(gen_afr)
+
+# POBLACION AMERICANA
+gen_amr <- snpgdsOpen("AMR.gds")
+#ver que las posiciones eraan dentro del archivo
+pos <- read.gdsn(index.gdsn(gen_amr, "snp.position"))
+range(pos) #comprobar que tiene toda la region de UGT1A1
+ids <- read.gdsn(index.gdsn(gen_amr, "snp.id"))
+# ver si estan las posiciones que me interesan
+mis_posiciones <- c(
+  234668879,
+  234668570, 
+  234669144,
+  234682119
+)
+ids_sel_amr <- ids[pos %in% mis_posiciones]
+ids_sel_amr
+length(ids_sel_amr)
+#Calculo de LD
+ld_amr <- snpgdsLDMat(gen_amr,
+                      snp.id = ids_sel_amr,
+                      method = "r",
+                      slide = 0)
+
+mat_ld_amr <- ld_amr$LD^2
+
+# Añadir etiquetas
+labels <- paste0("chr2:", pos[pos %in% mis_posiciones])
+
+colnames(mat_ld_amr) <- rownames(mat_ld_amr) <- labels
+# Heatmap
+library(corrplot)
+
+corrplot(mat_ld_amr,
+         method = "color",
+         type = "upper",
+         tl.col = "black",
+         tl.cex = 0.8,
+         main = "DL de Variantes relevantes en clínica en población Americana",
+         mar = c(0,0,3,0))
+
+snpgdsClose(gen_amr)
+
+# POBLACION SAS
+gen_sas <- snpgdsOpen("SAS.gds")
+#ver que las posiciones eraan dentro del archivo
+pos <- read.gdsn(index.gdsn(gen_sas, "snp.position"))
+range(pos) #comprobar que tiene toda la region de UGT1A1
+ids <- read.gdsn(index.gdsn(gen_sas, "snp.id"))
+# ver si estan las posiciones que me interesan
+mis_posiciones <- c(
+  234668879,
+  234668570, 
+  234669144,
+  234682119
+)
+ids_sel_sas <- ids[pos %in% mis_posiciones]
+ids_sel_sas
+length(ids_sel_sas)
+#Calculo de LD
+ld_sas <- snpgdsLDMat(gen_sas,
+                      snp.id = ids_sel_sas,
+                      method = "r",
+                      slide = 0)
+
+mat_ld_sas <- ld_sas$LD^2
+
+# Añadir etiquetas
+labels <- paste0("chr2:", pos[pos %in% mis_posiciones])
+
+colnames(mat_ld_sas) <- rownames(mat_ld_sas) <- labels
+# Heatmap
+library(corrplot)
+
+corrplot(mat_ld_sas,
+         method = "color",
+         type = "upper",
+         tl.col = "black",
+         tl.cex = 0.8,
+         main = "DL de Variantes relevantes en clínica en población Sur Asiática",
+         mar = c(0,0,3,0))
+
+snpgdsClose(gen_sas)
+
+# POBLACION ESTE DE ASIA- EAS
+gen_eas <- snpgdsOpen("EAS.gds")
+#ver que las posiciones eraan dentro del archivo
+pos <- read.gdsn(index.gdsn(gen_eas, "snp.position"))
+range(pos) #comprobar que tiene toda la region de UGT1A1
+ids <- read.gdsn(index.gdsn(gen_eas, "snp.id"))
+# ver si estan las posiciones que me interesan
+mis_posiciones <- c(
+  234668879,
+  234668570, 
+  234669144,
+  234682119
+)
+ids_sel_eas <- ids[pos %in% mis_posiciones]
+ids_sel_eas
+length(ids_sel_eas)
+#Calculo de LD
+ld_eas <- snpgdsLDMat(gen_eas,
+                      snp.id = ids_sel_eas,
+                      method = "r",
+                      slide = 0)
+
+mat_ld_eas <- ld_eas$LD^2
+
+#Añadir etiquetas
+labels <- paste0("chr2:", pos[pos %in% mis_posiciones])
+
+colnames(mat_ld_eas) <- rownames(mat_ld_eas) <- labels
+#Heatmap
+library(corrplot)
+
+corrplot(mat_ld_eas,
+         method = "color",
+         type = "upper",
+         tl.col = "black",
+         tl.cex = 0.8,
+         main = "DL de Variantes relevantes en clínica en población Este Asiática",
+         mar = c(0,0,3,0))
+
+snpgdsClose(gen_eas)
+
+# Vamos a guardar en un PDF todas las figuras que hemos cread. Para eso, abrimos unn PDF que vamos a darle un título y luego volvemos a cargar todo el código anterior y finalmente cerramos con devoff()
+pdf("LD_UGT1A1_VariantesRelevantesClinica_xPoblaciones.pdf",
+    width = 8,
+    height = 6)
+    
+dev.off()
+
+
+
