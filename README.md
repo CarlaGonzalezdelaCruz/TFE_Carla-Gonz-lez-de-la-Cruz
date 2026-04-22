@@ -671,4 +671,143 @@ pdf("LD_UGT1A1_VariantesRelevantesClinica_xPoblaciones.pdf",
 dev.off()
 
 
+## 4. ANALISIS DESCRIPTIVO DE LA BASE DE DATOS DE GENOMAD
+library(readxl)
+UGT1A1_gnomADfinal <- read_excel("Master en Bioinformática/AÑO 2 (2025-2026)/TFM/ANALISIS VCF_CHR37/obtencion de rs ID/metodo dsSNP/UGT1A1_gnomADfinal.xlsx")
+View(UGT1A1_gnomADfinal)
+
+# 4.1 Elegimos qué variantes son las que tiene mayor diversidad de frecuencia entre las poblaciones
+Seleccionar, por ejemplo, las 50 variantes con mayor variabilidad (desviación estándar)
+#Esto resalta las variantes que cambian mucho entre poblaciones
+varianza <- apply(datos_genomAD_freq, 1, sd)
+top_variantes50 <- datos_genomAD_freq[order(varianza, decreasing = TRUE)[1:50], ]
+
+#Convertir a matriz (obligatorio para heatmap)
+matriz_heatmap <- as.matrix(top_variantes50)
+
+#(Opcional) Poner los rsID como nombres de fila para que salgan en el gráfico
+rownames(matriz_heatmap) <- datos_genomAD_freq$rsID[order(varianza, decreasing = TRUE)[1:50]]
+
+#hacer el heatmap
+#Definir paleta de colores (de blanco a azul oscuro)
+library(gplots)
+colores <- colorRampPalette(c("white", "yellow", "orange", "red"))(100)
+
+heatmap.2(matriz_heatmap,
+          main = "Frecuencias de UGT1A1 por Población",
+          trace = "none",          # Quita las líneas feas dentro de los cuadros
+          col = colores,           # Aplicar nuestra paleta
+          scale = "column",        # Normaliza por población (ayuda a comparar patrones)
+          margins = c(10, 8),      # Ajustar márgenes para que se lean los nombres
+          key = TRUE,              # Mostrar la leyenda de colores
+          dendrogram = "both",     # Agrupar tanto poblaciones como variantes
+          cexRow = 0.6,            # Tamaño letra de los rsID
+          cexCol = 0.8)            # Tamaño letra de las poblaciones
+#Vamos a coger las poblaciones específicas sin tener en cuenta la AF_global
+#para coger solamente poblaciones especificas, sin tener en cuenta las globales:
+poblaciones_especificas <- c(
+  "AF_Europeos_No_Fin",
+  "AS_Europa_Sur",
+  "AF_Latino_Amr",
+  "AF_Africano",
+  "AS_Adiatico_Este",
+  "AS_Judio_Ashkenazi",
+  "AF_Finlandes"
+)
+media_poblacionesespecificas <- rowMeans(freq_num[, poblaciones_especificas], na.rm = TRUE)
+#seleccionar las poblaciones especificas para hacer heatmap
+matriz_especifica <- as.matrix(freq_num[, poblaciones_especificas])
+matriz_clean <- na.omit(matriz_especifica) #eliminamos valores NA
+library(pheatmap)
+#utilizamos log 
+mat_log <- log10(matriz_especifica + 1e-6)
+mat_log <-  na.omit(mat_log)
+pheatmap(mat_log,
+         scale = "none",
+         color = colorRampPalette(c("blue","white","red"))(100),
+         fontsize_row = 6,
+         fontsize_col = 10,
+         main = "Frecuencias UGT1A1 (gnomAD, log10)")
+
+#como hay 3077 variantes, vamos a ver la variabilidad por poblacion 
+#nos quedamos con las 50 mas variadas
+rango <- apply(mat_log, 1, function(x) max(x, na.rm=TRUE) - min(x, na.rm=TRUE))
+
+top_var <- mat_log[order(-rango), ][1:50, ]
+
+library(pheatmap)
+
+pheatmap(top_var,
+         scale = "row",   # CLAVE
+         color = colorRampPalette(c("blue","white","red"))(100),
+         fontsize_row = 6,
+         fontsize_col = 10,
+         main = "50 variantes con mayor varianza UGT1A1 (gnomAD)")
+# 4.2 Nos vamos a centrar en las variantes clínicas relevantes, vamos a ver qué variabilidad de las frecuencias hay entre poblaciones
+#variantes clinicas relevantes
+#vamos a construir la base de datos que queremos calcular las frecuencias, necesitamos filtarar por polaciones (sin las globales) y los rs que queremos
+
+vars_clinicas <- c(
+  "rs887829",  # proxy *28
+  "rs4148323", # *6
+  "rs6742078", # asociado a *60 en algunos estudios
+  "rs4124874", 
+  "rs34983651")# regulatoria descrita en UGT1A1
+poblaciones_especificas <- c(
+  "AF_Europeos_No_Fin",
+  "AS_Europa_Sur",
+  "AF_Latino_Amr",
+  "AF_Africano",
+  "AS_Adiatico_Este",
+  "AS_Judio_Ashkenazi",
+  "AF_Finlandes"
+)
+#limipar y separar la base de datos original
+
+#sacar los rs de la base de datos junto a REF, y ALT
+tabla_base <- UGT1A1_gnomADfinal[, c("rs", "REF", "ALT", poblaciones_especificas)]
+
+#construir tabla con estos rs y las poblaciones especificas solamente
+library(dplyr)
+
+tabla_final_clinica <- UGT1A1_gnomADfinal %>%
+  select(-AF_Global, -AF_PopMax, -AF_Otros, -AF_Homnres, -AF_Mujeres)
+#filtrar por rs
+tabla_clinica_completa <- tabla_base[tabla_base$rs %in% vars_clinicas, ]
+
+#a partir de esta base de datos, calculamos las frecuencias y comparaciones
+#vamos a crear una base de datos de UGT1A1_genomAD pero quitandole las columnas de frecuencias globales
+UGT1A1_filtred <- UGT1A1_gnomADfinal %>%
+  select(-AF_Global, -AF_PopMax, -AF_Otros, -AF_Homnres, -AF_Mujeres)
+
+# 4.3 Analisis de qué variantes son únicas en cada población 
+UGT1A1_filtred$diferencia_poblacional <- rs_diferencialestotales
+#vamos a filtrar los resultados por las variantes que tienen un 5% mas variables entre poblaciones
+threshold <- quantile(UGT1A1_filtred$diferencia_poblacional, 0.95, na.rm = TRUE)
+
+variantes_top <- UGT1A1_filtred[UGT1A1_filtred$diferencia_poblacional >= threshold, ]
+
+library(pheatmap)
+
+matriz_top_variabilidad <- as.matrix(variantes_top[, poblaciones_especificas])
+rownames(matriz_top_variabilidad) <- variantes_top$rs
+
+pheatmap(matriz_top_variabilidad,
+         scale = "none",
+         main = "Variantes con mayor 5% variabilidad interpoblacional")
+
+#AHORA VAMOS A HACER LO MISMO PERO QUEDANDONOS SOLAMENTE CON 15-20 VARIANTES 
+variantes15 <- head(UGT1A1_filtred[order(-UGT1A1_filtred$diferencia_poblacional), ], 15)
+#graficamos
+#normalizamos
+UGT1A1_filtred[, poblaciones_especificas] <- 
+  UGT1A1_filtred[, poblaciones_especificas] / 100
+
+matriz_15 <- as.matrix(variantes15[, poblaciones_especificas])
+rownames(matriz_15) <- variantes15$rs
+
+pheatmap(matriz_15,
+         scale = "row",
+         color = colorRampPalette(c("white","white", "red"))(100),
+         main = "Variantes de UGT1A1 con mayor variabilidad interpoblacional")
 
