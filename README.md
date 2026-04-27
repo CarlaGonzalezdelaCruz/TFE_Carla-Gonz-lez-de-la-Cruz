@@ -1,5 +1,4 @@
-# TFE_Carla-Gonzalez-de-la-Cruz
-Relevancia clínica poblacional de variantes del gen UGT1A1 asociadas a toxicidad por Irinotecan
+# TFE_Carla-Gonzalez-de-la-Cruz: Relevancia clínica poblacional de variantes del gen UGT1A1 asociadas a toxicidad por Irinotecan
 
 En el siguiente repositorio se adjunta los códigos empleados en la metodología del Trabajo Fin de Estudios. 
 
@@ -54,15 +53,11 @@ join tmp3.txt AMR_key.txt > tabla_final.txt
 sed '1iVARIANT\tAFR\tEUR\tEAS\tSAS\tAMR' tabla_final.txt > tabla_final_con_header.txt #se crea un unico archivio y se añade la cabezera
 
 # El archivo tabla_final_con_header.txt obtiene todas las variantes descritas con posiciones del gen UGTA1 y la frecuencia en cada poblacion. 
-# Filtramos este archivo quedándonos solo con las variantes con una frecuencia mayor a 0.1 en algunas de los grupos poblacionales
-awk '$2 > 0.1 || $3 > 0.1 || $4 > 0.1 || $5 > 0.1 || $6 > 0.1' tabla_final_con_header.txt > variantes_relevantes_1000G.txt
 
 # Exportamos  a excel ambos archivos y descargamos en nuestro usuario
 tr '\t' ',' < tabla_final_con_header.txt > tabla_final_con_header.txt.csv
 cp tabla_final_con_header.txt /mnt/c/Users/Usuario/Downloads/
 
-tr '\t' ',' < variantes_relevantes_1000G.txt > variantes_relevantes_1000G.csv
-cp variantes_relevantes_1000G.csv /mnt/c/Users/Usuario/Downloads/
 
 # 1.2 Base de datos genomAD
 Seguimos los mismos pasos, pero consultando los datos de la base de datos genomAD. 
