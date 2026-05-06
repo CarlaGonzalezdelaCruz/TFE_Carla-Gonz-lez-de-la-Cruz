@@ -665,6 +665,28 @@ pdf("LD_UGT1A1_VariantesRelevantesClinica_xPoblaciones.pdf",
     
 dev.off()
 
+# Hacer test estadistico para comparar el LD de las diferentes poblaciones
+library(vegan)
+#coger las matrices calculadas para cada poblacion y poner el mismo orden
+#primero aplicamos el nombre de las columnas que tenemos para la matriz de europa(mat_ld) al siguiente
+
+colnames(mat_ld_afr) <- labels
+rownames(mat_ld_afr) <- labels
+
+colnames(mat_ld_amr) <- labels
+rownames(mat_ld_amr) <- labels
+
+colnames(mat_ld_eas) <- labels
+rownames(mat_ld_eas) <- labels
+
+colnames(mat_ld_eas) <- labels
+rownames(mat_ld_eas) <- labels
+
+#aplicar Mantel test cogiendo como indicativo la poblacion europea
+mantel(mat_ld, mat_ld_amr, method = "pearson", permutations = 999999)
+mantel(mat_ld, mat_ld_afr, method = "pearson", permutations = 999999)
+mantel(mat_ld, mat_ld_eas, method = "pearson", permutations = 999999)
+mantel(mat_ld, mat_ld_sas, method = "pearson", permutations = 999999)
 
 ## 4. ANALISIS DESCRIPTIVO DE LA BASE DE DATOS DE GENOMAD
 library(readxl)
