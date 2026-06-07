@@ -837,74 +837,95 @@ pheatmap(matriz_15,
 
 
 ## 5. ANALISIS DE QUE TIPO DE VARIANTES SON LAS OBTENIDAS EN LAS 22 RS CON MAF > 0.25
-# URL de Ensembl VEP (GRCh37/hg19)
-url_vep <- "https://grch37.rest.ensembl.org/vep/human/id"
+
+# 2. CONFIGURACIÓN DE LOS DATOS (Tus 22 rsIDs originales)
+rsids <- c("rs759174", "rs28946889", "rs4148326", "rs4663971", "rs4148328", 
+           "rs4148329", "rs6717546", "rs6719561", "rs2003363", "rs56133230", 
+           "rs10203853", "rs10209214", "rs6728940", "rs6746002", "rs1500475", 
+           "rs6728520", "rs6735414", "rs10202032", "rs10199512", "rs4663336", 
+           "rs6723936", "rs62648950")
+
+# ¡IMPORTANTE! Añadimos ?hgvs=1 para forzar a Ensembl a devolver los campos HGVS oficiales
+url_vep <- "https://grch37.rest.ensembl.org/vep/human/id?hgvs=1"
 body_data <- list(ids = rsids)
 
-message("Consultando Ensembl VEP...")
-
-# 2. Hacer la petición compatible con tu versión de httr2
+# 3. CONSULTA A LA API DE ENSEMBL
+message("1. Consultando Ensembl VEP (Extrayendo Dataset Máximo)...")
 req <- request(url_vep) %>%
   req_headers(`Content-Type` = "application/json", `Accept` = "application/json") %>%
-  req_body_raw(jsonlite::toJSON(body_data, auto_unbox = TRUE), "application/json")
+  req_body_raw(jsonlite::toJSON(body_data, auto_unbox = TRUE), "application/json") %>%
+  req_timeout(20) # Evita bloqueos en el servidor
 
 res <- req_perform(req)
 
-# 3. Mapear de forma exhaustiva el JSON a una tabla plana
+# 4. PROCESAMIENTO EXHAUSTIVO DE TODOS LOS CAMPOS SOLICITADOS
 if (resp_status(res) == 200) {
   raw_data <- resp_body_string(res) %>% fromJSON(flatten = TRUE)
   
-  # Lista para acumular los transcritos individuales
-  lista_total_transcritos <- list()
+  message("2. Desempaquetando variables globales y consecuencias de transcritos...")
+  lista_total <- list()
   contador <- 1
   
   for (i in 1:nrow(raw_data)) {
     variante <- raw_data[i, ]
-    rsid <- variante$id
     
+    # --- Datos de Posición Global (Nivel Variante) ---
+    rsid       <- variante$id
+    cromosoma  <- if("seq_region_name" %in% names(variante)) variante$seq_region_name else NA
+    pos_inicio <- if("start" %in% names(variante)) variante$start else NA
+    pos_fin    <- if("end" %in% names(variante)) variante$end else NA
+    hebra      <- if("strand" %in% names(variante)) variante$strand else NA
+    localizacion_global <- paste0("chr", cromosoma, ":", pos_inicio, "-", pos_fin, " (", ifelse(hebra == 1, "+", "-"), ")")
+    
+    # Bloque de transcritos
     consecuencias <- variante$transcript_consequences[[1]]
     
-    # Si la variante tiene consecuencias anotadas en transcritos
     if (!is.null(consecuencias) && nrow(consecuencias) > 0) {
-      
       for (j in 1:nrow(consecuencias)) {
         tx <- consecuencias[j, ]
         
-        # Extraer campos solicitados con validación por si no existen en la fila
-        gen <- if("gene_symbol" %in% names(tx)) tx$gene_symbol else NA
-        tx_id <- if("transcript_id" %in% names(tx)) tx$transcript_id else NA
+        # --- Extracción y mapeo de los campos que has solicitado ---
+        tx_id        <- if("transcript_id" %in% names(tx)) tx$transcript_id else NA
+        coding_impact<- if("consequence_terms" %in% names(tx)) paste(unlist(tx$consequence_terms), collapse = ", ") else NA
+        gen          <- if("gene_symbol" %in% names(tx)) tx$gene_symbol else NA
         
-        # Tipo de variante (combina si hay más de un término, ej: missense_variant)
-        tipo_variante <- if("consequence_terms" %in% names(tx)) paste(unlist(tx$consequence_terms), collapse = ", ") else NA
+        # Nomenclaturas HGVS puras de Ensembl
+        hgvs_coding  <- if("hgvsc" %in% names(tx)) tx$hgvsc else "No disponible/No codificante"
+        hgvs_protein <- if("hgvsp" %in% names(tx)) tx$hgvsp else "No modifica proteína"
         
-        # Cambio en proteína (HGVS p. o combinación de aminoácidos)
-        cambio_aa <- if("amino_acids" %in% names(tx) && !is.na(tx$amino_acids)) {
-          paste0("p.", tx$amino_acids, tx$protein_start)
+        # Datos moleculares del transcrito
+        splice_dist  <- if("splice_distance" %in% names(tx)) tx$splice_distance else "N/A"
+        tsl          <- if("tsl" %in% names(tx)) tx$tsl else NA
+        mane_select  <- if("mane_select" %in% names(tx)) tx$mane_select else "N/A"
+        appris       <- if("appris" %in% names(tx)) tx$appris else "N/A"
+        
+        # Accesiones a bases de datos de proteínas externas
+        uniprot_acc  <- if("swissprot" %in% names(tx)) {
+          paste(unlist(tx$swissprot), collapse = ", ")
+        } else if ("uniprot_isoform" %in% names(tx)) {
+          paste(unlist(tx$uniprot_isoform), collapse = ", ")
         } else {
-          "No codificante"
+          "N/A"
         }
         
-        # Campo MANE Select / Canonical status de Ensembl
-        # (En grch37 se suele reflejar en el flag 'canonical')
-        es_canonical <- if("canonical" %in% names(tx)) tx$canonical else 0
-        mane_select <- if("mane_select" %in% names(tx)) tx$mane_select else NA
+        biotype      <- if("biotype" %in% names(tx)) tx$biotype else NA
         
-        # Transcript Support Level (TSL)
-        tsl <- if("tsl" %in% names(tx)) tx$tsl else NA
-        
-        # Biotipo (protein_coding, lncRNA, etc.)
-        biotype <- if("biotype" %in% names(tx)) tx$biotype else NA
-        
-        # Guardamos la fila del transcrito específico
-        lista_total_transcritos[[contador]] <- data.frame(
+        # Guardar todo estructurado en la fila
+        lista_total[[contador]] <- data.frame(
           RSID = rsid,
-          Gen = gen,
-          Transcript_ID = tx_id,
-          Tipo_Variante = tipo_variante,
-          Cambio_Proteina = cambio_aa,
-          Es_Canonical = es_canonical,
-          MANE_Select = mane_select,
+          Location_hg19 = localizacion_global,
+          Chrom = cromosoma,
+          Pos_Start = pos_inicio,
+          Transcript = tx_id,
+          Gene = gen,
+          Coding_Impact = coding_impact,
+          HGVS_Coding = hgvs_coding,
+          HGVS_Protein = hgvs_protein,
+          Splice_Distance = splice_dist,
           TSL = tsl,
+          MANE_Select = mane_select,
+          APPRIS = appris,
+          UniProt_Accession = uniprot_acc,
           Biotype = biotype,
           stringsAsFactors = FALSE
         )
@@ -913,112 +934,28 @@ if (resp_status(res) == 200) {
     }
   }
   
-  # Combinar todo en el dataframe técnico masivo
-  tabla_anotacion_completa <- do.call(rbind, lista_total_transcritos)
+  tabla_maxima <- do.call(rbind, lista_total)
   
-  message("¡Listo! Datos crudos de Ensembl estructurados por transcrito:")
-  # Imprimir las primeras filas para inspección en la consola
-  print(head(tabla_anotacion_completa, 30))
-  
-  # Opcional: Puedes guardar este resultado en un CSV para abrirlo en Excel y filtrarlo cómodamente
-  # write.csv(tabla_anotacion_completa, "anotacion_ensembl_vep.csv", row.names = FALSE)
-  
-} else {
-  stop("Error en el servidor de Ensembl: ", resp_status(res))
-}
-
-View(tabla_anotacion_completa)
-
-#pasar a excel este resultado
-# 1. INSTALACIÓN DE LIBRERÍAS (Solo se ejecutan si no las tienes)
-if (!require("httr2")) install.packages("httr2")
-if (!require("jsonlite")) install.packages("jsonlite")
-if (!require("openxlsx")) install.packages("openxlsx")
-
-library(httr2)
-library(jsonlite)
-library(openxlsx)
-
-# 2. CONFIGURACIÓN DE LOS DATOS
-rsids <- c("rs759174", "rs28946889", "rs4148326", "rs4663971", "rs4148328", 
-           "rs4148329", "rs6717546", "rs6719561", "rs2003363", "rs56133230", 
-           "rs10203853", "rs10209214", "rs6728940", "rs6746002", "rs1500475", 
-           "rs6728520", "rs6735414", "rs10202032", "rs10199512", "rs4663336", 
-           "rs6723936", "rs62648950")
-
-url_vep <- "https://grch37.rest.ensembl.org/vep/human/id"
-body_data <- list(ids = rsids)
-
-# 3. CONSULTA A LA API DE ENSEMBL
-message("1. Consultando Ensembl VEP...")
-req <- request(url_vep) %>%
-  req_headers(`Content-Type` = "application/json", `Accept` = "application/json") %>%
-  req_body_raw(jsonlite::toJSON(body_data, auto_unbox = TRUE), "application/json")
-
-res <- req_perform(req)
-
-# 4. PROCESAMIENTO TÉCNICO DE LOS TRANSCRITOS
-if (resp_status(res) == 200) {
-  raw_data <- resp_body_string(res) %>% fromJSON(flatten = TRUE)
-  
-  message("2. Procesando datos transcrito por transcrito...")
-  lista_total <- list()
-  contador <- 1
-  
-  for (i in 1:nrow(raw_data)) {
-    variante <- raw_data[i, ]
-    rsid <- variante$id
-    consecuencias <- variante$transcript_consequences[[1]]
-    
-    if (!is.null(consecuencias) && nrow(consecuencias) > 0) {
-      for (j in 1:nrow(consecuencias)) {
-        tx <- consecuencias[j, ]
-        
-        # Extraer campos puros
-        gen      <- if("gene_symbol" %in% names(tx)) tx$gene_symbol else NA
-        tx_id    <- if("transcript_id" %in% names(tx)) tx$transcript_id else NA
-        efecto   <- if("consequence_terms" %in% names(tx)) paste(unlist(tx$consequence_terms), collapse = ", ") else NA
-        mane     <- if("mane_select" %in% names(tx)) tx$mane_select else NA
-        tsl      <- if("tsl" %in% names(tx)) tx$tsl else NA
-        biotype  <- if("biotype" %in% names(tx)) tx$biotype else NA
-        
-        # Formatear el cambio de aminoácido
-        cambio_aa <- "No codificante"
-        if ("amino_acids" %in% names(tx) && !is.na(tx$amino_acids)) {
-          cambio_aa <- paste0("p.", tx$amino_acids, tx$protein_start)
-        }
-        
-        # Guardar en la fila de la tabla
-        lista_total[[contador]] <- data.frame(
-          RSID = rsid, Gen = gen, Transcript_ID = tx_id, Tipo_Variante = efecto,
-          Cambio_Proteina = cambio_aa, MANE_Select = mane, TSL = tsl, Biotype = biotype,
-          stringsAsFactors = FALSE
-        )
-        contador <- contador + 1
-      }
-    }
-  }
-  
-  tabla_final <- do.call(rbind, lista_total)
-  
-  # 5. EXPORTAR DIRECTO A EXCEL
-  message("3. Guardando archivo de Excel...")
+  # 5. EXPORTAR DIRECTO A EXCEL CON DISEÑO ACADÉMICO
+  message("3. Escribiendo reporte masivo en Excel...")
   wb <- createWorkbook()
-  addWorksheet(wb, "Datos Ensembl")
+  addWorksheet(wb, "Anotación Completa VEP")
   
-  # Estilo gris oscuro para los encabezados
-  estilo_top <- createStyle(fontName = "Calibri", fontColour = "#FFFFFF", textDecoration = "bold", bgFill = "#333333", halign = "center")
+  # Estilo ejecutivo verde oscuro (típico de genética/salud) para los encabezados
+  estilo_top <- createStyle(fontName = "Calibri", fontColour = "#FFFFFF", 
+                            textDecoration = "bold", bgFill = "#1F4E79", halign = "center")
   
-  writeData(wb, "Datos Ensembl", tabla_final, headerStyle = estilo_top)
-  setColWidths(wb, "Datos Ensembl", cols = 1:ncol(tabla_final), widths = "auto")
+  writeData(wb, "Anotación Completa VEP", tabla_maxima, headerStyle = estilo_top)
+  setColWidths(wb, "Anotación Completa VEP", cols = 1:ncol(tabla_maxima), widths = "auto")
   
-  # Nombre del documento de salida
-  saveWorkbook(wb, "Resultado_Ensembl_UGT1A.xlsx", overwrite = TRUE)
+  # Nombre del nuevo documento completo
+  saveWorkbook(wb, "Anotacion_Completa_Ensembl_UGT1A.xlsx", overwrite = TRUE)
   
-  message("¡PROCESO TERMINADO! Busca el archivo 'Resultado_Ensembl_UGT1A.xlsx' en tu carpeta de trabajo.")
+  message("¡PROCESO COMPLETADO!")
+  message("Revisa tu directorio de trabajo. Se ha generado: 'Anotacion_Completa_Ensembl_UGT1A.xlsx'")
   
 } else {
-  stop("El servidor de Ensembl no responde adecuadamente.")
+  stop("El servidor de Ensembl no ha respondido de forma correcta. Código: ", resp_status(res))
 }
 
 
