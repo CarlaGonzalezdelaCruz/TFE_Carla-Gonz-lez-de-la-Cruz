@@ -124,19 +124,21 @@ Los resultados contribuyen a mejorar la interpretación de biomarcadores farmaco
 
 # 1.1 Base de datos 1000Genomes
 #Se descarga el cromosoma 2 y el índice
+```r
 wget https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr2.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz
 wget https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr2.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz.tbi
-
+```
 #Filtrado del gen UGT1A1
-
+```r
 bcftools view -r 2:234668000-234700000 \ ALL.chr2.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz \ -Oz -o UGT1A1_1000G.vcf.gz
-
+```
 #Se descarga el archivo de las poblaciones incluidas en la base de datos y se comprueba que se ha obtenido correctamente
+```r
 wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel
 head integrated_call_samples_v3.20130502.ALL.panel.1
-
+```
 #Creacion de la lista de poblaciones
-
+```r
 awk '$3=="AFR"{print $1}' integrated_call_samples_v3.20130502.ALL.panel > AFR.txt
 awk '$3=="EUR"{print $1}' integrated_call_samples_v3.20130502.ALL.panel > EUR.txt
 awk '$3=="EAS"{print $1}' integrated_call_samples_v3.20130502.ALL.panel > EAS.txt
@@ -144,25 +146,25 @@ awk '$3=="SAS"{print $1}' integrated_call_samples_v3.20130502.ALL.panel > SAS.tx
 awk '$3=="AMR"{print $1}' integrated_call_samples_v3.20130502.ALL.panel > AMR.txt
 
 wc -l AFR.txt EUR.txt EAS.txt SAS.txt AMR.txt #comprobar que las listas no están vacías
-
+```
 #Calculo de las frecuencias de las diferentes variantes en cada poblacion sin rsID
-
+```r
 bcftools view -S AFR.txt UGT1A1_1000G.vcf.gz | \ bcftools +fill-tags -- -t AF | \ bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' > AFR_freq.txt
 bcftools view -S EUR.txt UGT1A1_1000G.vcf.gz | bcftools +fill-tags -- -t AF | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' > EUR_freq.txt
 bcftools view -S EAS.txt UGT1A1_1000G.vcf.gz | bcftools +fill-tags -- -t AF | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' > EAS_freq.txt
 bcftools view -S SAS.txt UGT1A1_1000G.vcf.gz | bcftools +fill-tags -- -t AF | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' > SAS_freq.txt
 bcftools view -S AMR.txt UGT1A1_1000G.vcf.gz | bcftools +fill-tags -- -t AF | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' > AMR_freq.txt
-
+```
 #Creacion de una clave unica para cada archivo de poblacion para que nos de las posiciones correctas y las frecuencias como en el ejemplo: 2   234668879   TA   T   0.12 PASE A: 2:234668879:TA:T    0.12. 
-
+```r
 awk '{print $1":"$2":"$3":"$4"\t"$5}' AFR_freq.txt > AFR_key.txt
 awk '{print $1":"$2":"$3":"$4"\t"$5}' EUR_freq.txt > EUR_key.txt
 awk '{print $1":"$2":"$3":"$4"\t"$5}' EAS_freq.txt > EAS_key.txt
 awk '{print $1":"$2":"$3":"$4"\t"$5}' SAS_freq.txt > SAS_key.txt
 awk '{print $1":"$2":"$3":"$4"\t"$5}' AMR_freq.txt > AMR_key.txt
-
+```
 #Ordenamos las columnas de cada arhicvo y las juntamos en uno único con el comando JOIN
-
+```r
 sort -k1,1 AFR_key.txt -o AFR_key.txt
 sort -k1,1 EUR_key.txt -o EUR_key.txt
 sort -k1,1 EAS_key.txt -o EAS_key.txt
@@ -175,85 +177,97 @@ join tmp2.txt SAS_key.txt > tmp3.txt
 join tmp3.txt AMR_key.txt > tabla_final.txt
 
 sed '1iVARIANT\tAFR\tEUR\tEAS\tSAS\tAMR' tabla_final.txt > tabla_final_con_header.txt #se crea un unico archivio y se añade la cabezera
-
+```
 #El archivo tabla_final_con_header.txt obtiene todas las variantes descritas con posiciones del gen UGTA1 y la frecuencia en cada poblacion. 
 #Exportamos  a excel ambos archivos y descargamos en nuestro usuario
+```r
 tr '\t' ',' < tabla_final_con_header.txt > tabla_final_con_header.txt.csv
 cp tabla_final_con_header.txt /mnt/c/Users/Usuario/Downloads/
-
+```
 # 1.2 Base de datos genomAD
 Seguimos los mismos pasos, pero consultando los datos de la base de datos genomAD. 
+```r
 wget https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/vcf/genomes/gnomad.genomes.r2.1.1.sites.2.vcf.bgz
 wget https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/vcf/genomes/gnomad.genomes.r2.1.1.sites.2.vcf.bgz.tbi
-
+```
 #Filtrado del gen UGT1A1
-
+```r
 bcftools view -r 2:234668000-234700000 \ gnomad.genomes.r2.1.1.sites.2.vcf.bgz \ -Oz -o UGT1A1_gnomad.vcf.gz
-
+```
 #Extraccion del archivo de frecuencias
+```r
 bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\t%INFO/AF_afr\t%INFO/AF_nfe\t%INFO/AF_eas\t%INFO/AF_amr\n' \
 UGT1A1_gnomad.vcf.gz > gnomad_raw.txt
-
+```
 #Creacion del identificador de las variantes y añadir la cabecera
+```r
 $1":"$2":"$3":"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9}' gnomad_raw.txt > gnomad_clean.txt
 sed '1iVARIANT\tAF\tAFR\tEUR\tEAS\tSAS\tAMR' gnomad_clean.txt > gnomad_final.txt
-
+```
 #Exportamos a excel y guardamos resultado
-
+```r
 tr '\t' ',' < gnomad_final.txt > gnomad_final.csv
 cp gnomad_final.csv /mnt/c/Users/Usuario/Downloads/
-
+```
 #Filtramos por variantes relevantes con frecuencia > 0.1 en cualquier poblacion
-
+```r
 awk '$3 > 0.1 || $4 > 0.1 || $5 > 0.1 || $6 > 0.1' gnomad_final.txt > variantes_relevantes_0.1.txt 
-
+```
 #Exportamos este archivo a excel y guardamos
-
+```r
 tr '\t' ',' < variantes_relevantes_0.01.txt > variantes_relevantescompletas_0.01.csv
 cp variantes_relevantescompletas_0.01.csv /mnt/c/Users/Usuario/Downloads/
-
+```
 ## 2. CRUZAR LAS VARIANTES OBTENIDAS, NUESTRAS COORDENADAS CON LOS RSID QUE SABEMOS. COMO NOS DA ERROR CRUZAR CON ENSEMBL, PROBAMOS A CRUZAR AMBAS BASES DE DATOS CON sdSNP (CROMOSOMA DE REFERENCIA CHr37)
 #Descargamos dbSNP (CHr37)
-
+```r
 wget https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz
 wget https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi
+```
 #Indexar VCF
-
+```r
 bcftools index UGT1A1_gnomad.vcf.gz
 bcftools index UGT1A1_1000G.vcf.gz
+```
 #Normalizar las variantes
 #Descargamos primero Genoma Chr37(hg19)
-
+```r
 wget https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz
-
+```
 #Lo descomprimimos quedandonos la secuencia fasta 
+```r
 gunzip human_g1k_v37.fasta.gz
 human_g1k_v37.fasta
-Indexar
-
+```
+#Indexar
+```r
 samtools faidx human_g1k_v37.fasta
+```
 #Este comando crea el archivo fasta descomprimido e indexado human_g1k_v37.fasta.fai
 
 #Normalización para alinear las variantes correctamente 
+```r
 bcftools norm -f human_g1k_v37.fasta \
 UGT1A1_gnomad.vcf.gz -Oz -o gnomad.norm.vcf.gz
 
 bcftools norm -f human_g1k_v37.fasta \
 UGT1A1_1000G.vcf.gz -Oz -o 1000G.norm.vcf.gz
-
+```
 #Indexamos de nuevo ambos archivos 
-
+```r
 bcftools index -t gnomad.norm.vcf.gz
 bcftools index -t 1000G.norm.vcf.gz
-
+```
 #AÑADIR rs ID a genomAD
 
 #Es necesario ver como se llaman los cromosomas en los dos archivos antes: 
+```r
 bcftools view -H gnomad.norm.vcf.gz | head -n 5 | cut -f1
 bcftools view -H GCF_000001405.25.gz | head -n 5 | cut -f1
 bcftools view -H 1000G.norm.vcf.gz | head -n 5 | cut -f1
+```
 #Como nos da dos archivos que se llaman 2 y el archivo de dbSNP nos devuelve la posicion NC_000001.10, hay que reenombrarlos para que se crucen correctamente:
-
+```r
 cat <<EOF > mapping_chrs.txt
 NC_000001.10 1
 NC_000002.11 2
@@ -281,8 +295,9 @@ NC_000023.10 X
 NC_000024.9  Y
 NC_012920.1  MT
 EOF
-
+```
 #Renombramos para que la posicion del cromosoma 2 la nombre como 1. Ahora generamos una nueva versión del archivo de referencia (el que tiene los rsID) pero con los nombres de cromosomas simplificados:
+```r
 bcftools annotate --rename-chrs mapping_chrs.txt GCF_000001405.25.gz -Oz -o ref_renamed.vcf.gz
 
 #Indexamos este archivo renombrado
@@ -294,13 +309,13 @@ bcftools annotate \
   -c ID \
   gnomad.norm.vcf.gz \
   -Oz -o gnomad.with_rsID.vcf.gz
-
+```
 #Comprobamos que se ha ejecutaado correctamente:
-
+```r
 bcftools view -H gnomad.with_rsID.vcf.gz | head -n 20 | awk '{print $1, $2, $3}'
-
+```
 #Añadir rs ID a 1000Genomes
-
+```r
 bcftools annotate \
 -a ref_renamed.vcf.gz \
 -c ID \
@@ -315,11 +330,12 @@ bcftools view -H 1000G.with_rsID.vcf.gz | head -n 20 | awk '{print $1, $2, $3}'
 
 tabix -p vcf gnomad.with_rsID.vcf.gz
 tabix -p vcf 1000G.with_rsID.vcf.gz
+```
 
 #Extraer los datos y convertirlos a formato CSV (cambiando tabuladores por comas)
 
 #genomAD:
-
+```r
 bcftools query -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/AF\t%INFO/AF_popmax\t%INFO/AF_nfe\t%INFO/AF_nfe_seu\t%INFO/AF_amr\t%INFO/AF_afr\t%INFO/AF_eas\t%INFO/AF_asj\t%INFO/AF_fin\t%INFO/AF_oth\t%INFO/AF_male\t%INFO/AF_female\n' gnomad.with_rsID.vcf.gz > datos_poblaciones_total.tsv
 
 #Conversion de archivo tsv a csv y creacion de la cabecera (títulos de las columnas)
@@ -328,9 +344,10 @@ echo "CHR,POS,rsID,REF,ALT,AF_Global,AF_PopMax,AF_Europeos,AF_Europa_Sur,AF_Lati
 #Convertir los tabuladores del archivo .tsv en comas y añadirlo al archivo:
 
 tr '\t' ',' < datos_poblaciones_total.tsv >> UGT1A1_gnomADfinal.csv
+```
 
 #1000Genomes:
-
+```r
 bcftools annotate \
   -a ref_renamed.vcf.gz \
   -c ID \
@@ -348,16 +365,16 @@ echo "CHR,POS,rsID,REF,ALT,AF_Global,AF_Europeos,AF_Africanos,AF_Americanos,AF_A
 #Extraer los datos del archivo NUEVO (1000G.with_rsID.vcf.gz):
 
 bcftools query -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/AF\t%INFO/EUR_AF\t%INFO/AFR_AF\t%INFO/AMR_AF\t%INFO/EAS_AF\t%INFO/SAS_AF\n' 1000G.with_rsID.vcf.gz | tr '\t' ',' >> Final_1000G_con_RS.csv
-
+```
 
 #Exportar al ordenador:
-
+```r
 explorer.exe 
-
+```
 # 3. ANALISIS DE DL EN LA BASE DE DATOS DE 1000GENOMES PORQUE ES LA QUE ESTÁ INDIVIDUO POR INDIVIDUO Y EN FASE
 # 3.1 Quedarnos solamente con variantes relevantes 
 #Primero se hace un filtrado global y luego poblacion por poblacion
-
+```r
  bcftools view -v snps UGT1A1_1000G.vcf.gz | \
 bcftools filter -i 'MAF>0.05 && F_MISSING<0.1' \
 -Oz -o UGT1A1_1000G_filtered.vcf.gz
@@ -389,10 +406,11 @@ bcftools index UGT1A1_1000G_filtered_AMR.vcf.gz
 
 bcftools view -S SAS.txt UGT1A1_1000G_filtered.vcf.gz -Oz -o UGT1A1_1000G_filtered_SAS.vcf.gz
 bcftools index UGT1A1_1000G_filtered_SAS.vcf.gz
+```
 
 #Una vez tenemos los archivos de las variantes relevantes por población, hacemos el análisis de desequilibrio de ligamiento.
 #Instalacion de paquetes necesarios:
-
+```r
 if (!require("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install(c("SNPRelate", "gdsfmt"))
@@ -401,10 +419,10 @@ BiocManager::install(c("SNPRelate", "gdsfmt"))
 library(SNPRelate)
 library(gdsfmt)
 setwd(utils::choose.dir())
-
+```
 # 3.1.1 Hacemos el análisis de DL para variantes conn MAF > 0.25%
 #Abrir el archivo
-
+```r
 genofile <- snpgdsOpen("EUR.gds")
 
 #SELECCIONAR SNPs con filtro estricto MAF > 0.25
@@ -419,9 +437,10 @@ lista_completa_ids <- read.gdsn(index.gdsn(genofile, "snp.id"))
 
 #Filtramos los rsIDs para que coincidan EXACTAMENTE con los SNPs que pasaron el filtro 0.25
 nombres_para_grafico <- lista_completa_rsids[lista_completa_ids %in% snp_seleccionados]
+```
 
 #CALCULAR MATRIZ DE DL:
-
+```r
 ld_obj <- snpgdsLDMat(genofile, snp.id=snp_seleccionados, method="r", slide=0)
 matrix_final <- ld_obj$LD^2
 
@@ -443,8 +462,10 @@ corrplot(matrix_final,
          
 #Ver cuales son las variantes con MAF >0.25 en Europa y comparamos con el resto de poblaciones
 genofile <- snpgdsOpen("EUR.gds")
+```
 
 #Filtro MAF > 0.25
+```r
 snp_sel <- snpgdsSelectSNP(genofile, maf=0.25, missing.rate=0.05)
 
 #EXTRAER DATOS (Forzamos la lectura de rsID y de Posición)
@@ -469,9 +490,9 @@ colnames(matrix_eur) <- nombres_finales
 rownames(matrix_eur) <- nombres_finales
 
 snpgdsClose(genofile)
-
+```
 #Graficamos
-
+```r
 corrplot(matrix_eur, 
          method = "color", 
          type = "upper", 
@@ -481,8 +502,9 @@ corrplot(matrix_eur,
          main = "DL en variantes del gen UGT1A1 en población EUROPEA con MAF > 0.25",
          mar = c(0,0,2,0))
          
+```
 #Hacemos lo mismo en poblacion Africana
-
+```r
 snpgdsVCF2GDS("UGT1A1_1000G_filtered_AFR.vcf.gz", "AFR.gds", method="biallelic.only")
 
 genofile_afr <- snpgdsOpen("AFR.gds")
@@ -549,9 +571,9 @@ dibujar_con_nombres <- function(mat, titulo) {
            main = titulo, 
            cl.lim = c(0, 1))
 }
-
+```
 #Dibujamos las 5 poblaciones
-
+```r
 dibujar_con_nombres(matrix_eur, "EUR (MAF > 0.25)")
 dibujar_con_nombres(matrix_afr, "AFR")
 dibujar_con_nombres(matrix_eas, "EAS")
@@ -561,9 +583,9 @@ dibujar_con_nombres(matrix_sas, "SAS")
 #Volver a 1 solo gráfico
 
 par(mfrow = c(1, 1))
-
+```
 # 3.1.2 Creamos un PDF de los gráficos para que tenga una mejor calidad y no se corten los ejes:
-
+```r
 #1)Definimos el nombre del archivo y el tamaño (grande para que quepa todo)
 pdf("Comparativa_LD_UGT1A1_Completa.pdf", width = 15, height = 10)
 
@@ -596,10 +618,10 @@ dibujar_tfm(matrix_sas, "SOUTH ASIA (SAS)")
 #5)Cerramos el PDF
 
 dev.off()
-
+```
 ## 4. ANALISIS DE DESEQUILIBRIO DE LIGAMIENTO Y FRECUENCIAS DE VARIANTES INMPORTANTES EN CLINICA: rs8175347, rs4148323, rs887829 y rs6717546. 
 #Filtrar nel archivo original vcf de 1000Genomes para cada poblacion, sin tener en cuenta un MAF: 
-
+```r
 bcftools view -S EUR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.EURcomplet.vcf.gz
 bcftools view -S AFR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.AFRcomplet.vcf.gz
 bcftools view -S AMR.txt UGT1A1_1000G.vcf.gz -Oz -o UGT1A1.AMRcomplet.vcf.gz
@@ -612,10 +634,10 @@ for pop in EUR AFR AMR EAS SAS
 do
   bcftools index UGT1A1.${pop}complet.vcf.gz
 done
-
+```
 # 4.1 Calcular el DL de cada poblacion
 #Convertir todos los VCF a GDS para que los trabaje R. 
-
+```r
 library(SNPRelate)
 
 snpgdsVCF2GDS("UGT1A1.EURcomplet.vcf.gz", "EUR.gds", method="copy.num.of.ref")
@@ -673,9 +695,9 @@ corrplot(mat_ld,
          mar = c(0,0,3,0))
 
 snpgdsClose(gen_eur)
-
+```
 #AHORA VAMOS A HACERLO PARA EL RESTO DE POBLACIONES, Y PARA NO REPETIR CÓDIGO, AJUSTAMOS: 
-
+```r
 gen_afr <- snpgdsOpen("AFR.gds")
 #ver que las posiciones eraan dentro del archivo
 pos <- read.gdsn(index.gdsn(gen_afr, "snp.position"))
@@ -722,9 +744,9 @@ corrplot(mat_ld_afr,
          mar = c(0,0,3,0))
 
 snpgdsClose(gen_afr)
-
+```
 #POBLACION AMERICANA
-
+```r
 gen_amr <- snpgdsOpen("AMR.gds")
 #ver que las posiciones eraan dentro del archivo
 pos <- read.gdsn(index.gdsn(gen_amr, "snp.position"))
@@ -768,9 +790,9 @@ corrplot(mat_ld_amr,
          mar = c(0,0,3,0))
 
 snpgdsClose(gen_amr)
-
+```
 #POBLACION SAS
-
+```r
 gen_sas <- snpgdsOpen("SAS.gds")
 #ver que las posiciones eraan dentro del archivo
 pos <- read.gdsn(index.gdsn(gen_sas, "snp.position"))
@@ -815,9 +837,9 @@ corrplot(mat_ld_sas,
          mar = c(0,0,3,0))
 
 snpgdsClose(gen_sas)
-
+```
 #POBLACION ESTE DE ASIA- EAS
-
+```r
 gen_eas <- snpgdsOpen("EAS.gds")
 #ver que las posiciones eraan dentro del archivo
 pos <- read.gdsn(index.gdsn(gen_eas, "snp.position"))
@@ -861,17 +883,17 @@ corrplot(mat_ld_eas,
          mar = c(0,0,3,0))
 
 snpgdsClose(gen_eas)
-
+```
 #Vamos a guardar en un PDF todas las figuras que hemos cread. Para eso, abrimos unn PDF que vamos a darle un título y luego volvemos a cargar todo el código anterior y finalmente cerramos con devoff():
-
+```r
 pdf("LD_UGT1A1_VariantesRelevantesClinica_xPoblaciones.pdf",
     width = 8,
     height = 6)
     
 dev.off()
-
+```
 # 4.2 Hacer test estadistico para comparar el LD de las diferentes poblaciones
-
+```r
 library(vegan)
 
 #Coger las matrices calculadas para cada poblacion y poner el mismo orden.
@@ -895,9 +917,9 @@ mantel(mat_ld, mat_ld_amr, method = "pearson", permutations = 999999)
 mantel(mat_ld, mat_ld_afr, method = "pearson", permutations = 999999)
 mantel(mat_ld, mat_ld_eas, method = "pearson", permutations = 999999)
 mantel(mat_ld, mat_ld_sas, method = "pearson", permutations = 999999)
-
+```
 # 4.3 Hacemos el Test de Mantel con los 22 rs que tienen mayor variabilidad en todas las poblaciones (MAF>0.25)
-
+```r
 gen_eur <- snpgdsOpen("EUR.gds")
 #En lugar de filtrar por posición manual, dejamos que R filtre por calidad (MAF): 
 ids_filtrados_eur <- snpgdsSelectSNP(gen_eur, 
@@ -918,37 +940,37 @@ mat_ld_22_eur
 pos_22_eur <- read.gdsn(index.gdsn(gen_eur, "snp.position"))[ids_filtrados_eur]
 
 snpgdsClose(gen_eur)
-
+```
 #POBLACIÓN AFRICANA
-
+```r
 gen_afr <- snpgdsOpen("AFR.gds")
 ids_filt_afr <- snpgdsSelectSNP(gen_afr, maf = 0.25, missing.rate = 0.1)
 pos_22_afr   <- read.gdsn(index.gdsn(gen_afr, "snp.position"))[ids_filt_afr]
 snpgdsClose(gen_afr)
-
+```
 #POBLACIÓN AMERICANA
-
+```r
 gen_amr <- snpgdsOpen("AMR.gds")
 ids_filt_amr <- snpgdsSelectSNP(gen_amr, maf = 0.25, missing.rate = 0.1)
 pos_22_amr   <- read.gdsn(index.gdsn(gen_amr, "snp.position"))[ids_filt_amr]
 snpgdsClose(gen_amr)
-
+```
 #POBLACIÓN ESTE DE ASIA (EAS)
-
+```r
 gen_eas <- snpgdsOpen("EAS.gds")
 ids_filt_eas <- snpgdsSelectSNP(gen_eas, maf = 0.25, missing.rate = 0.1)
 pos_22_eas   <- read.gdsn(index.gdsn(gen_eas, "snp.position"))[ids_filt_eas]
 snpgdsClose(gen_eas)
-
+```
 #POBLACIÓN SUR ASIÁTICA (SAS)
-
+```r
 gen_sas <- snpgdsOpen("SAS.gds")
 ids_filt_sas <- snpgdsSelectSNP(gen_sas, maf = 0.25, missing.rate = 0.1)
 pos_22_sas   <- read.gdsn(index.gdsn(gen_sas, "snp.position"))[ids_filt_sas]
 snpgdsClose(gen_sas)
-
+```
 #Buscamos los SNPs que pasaron el filtro en TODAS las poblaciones
-
+```r
 posiciones_comunes <- intersect(pos_22_eur, pos_22_afr) %>%
   intersect(pos_22_amr) %>%
   intersect(pos_22_eas) %>%
@@ -991,9 +1013,10 @@ gen_sas <- snpgdsOpen("SAS.gds")
 ids_comunes_sas <- read.gdsn(index.gdsn(gen_sas, "snp.id"))[read.gdsn(index.gdsn(gen_sas, "snp.position")) %in% posiciones_comunes]
 mat_ld_sas <- (snpgdsLDMat(gen_sas, snp.id = ids_comunes_sas, method = "r", slide = 0)$LD)^2
 snpgdsClose(gen_sas)
-
+```
 
 #########Para saber cuales son los 14 rs comunes donde se aplica el test de mantel
+```r
 #Abrimos cualquiera de los archivos GDS
 gen_eur <- snpgdsOpen("EUR.gds")
 
@@ -1019,9 +1042,9 @@ mantel(mat_ld_eur, mat_ld_afr, method = "pearson", permutations = 9999)
 mantel(mat_ld_eur, mat_ld_amr, method = "pearson", permutations = 9999)
 mantel(mat_ld_eur, mat_ld_eas, method = "pearson", permutations = 9999)
 mantel(mat_ld_eur, mat_ld_sas, method = "pearson", permutations = 9999)
-
+```
 #HACER EL MISMO ANALISIS DE LD Y TEST DE MANTEL CON VARIANTES MAF>0.1#
-
+```r
 gen_eur <- snpgdsOpen("EUR.gds")
 
 ids_filtrados_eur <- snpgdsSelectSNP(gen_eur, 
@@ -1044,36 +1067,37 @@ mat_ld_22_eur
 pos_22_eur <- read.gdsn(index.gdsn(gen_eur, "snp.position"))[ids_filtrados_eur]
 
 snpgdsClose(gen_eur)
-
+```
 #POBLACIÓN AFRICANA
+```r
 gen_afr <- snpgdsOpen("AFR.gds")
 ids_filt_afr <- snpgdsSelectSNP(gen_afr, maf = 0.1, missing.rate = 0.1)
 pos_22_afr   <- read.gdsn(index.gdsn(gen_afr, "snp.position"))[ids_filt_afr]
 snpgdsClose(gen_afr)
-
+```
 #POBLACIÓN AMERICANA
-
+```r
 gen_amr <- snpgdsOpen("AMR.gds")
 ids_filt_amr <- snpgdsSelectSNP(gen_amr, maf = 0.1, missing.rate = 0.1)
 pos_22_amr   <- read.gdsn(index.gdsn(gen_amr, "snp.position"))[ids_filt_amr]
 snpgdsClose(gen_amr)
-
+```
 #POBLACIÓN ESTE DE ASIA (EAS)
-
+```r
 gen_eas <- snpgdsOpen("EAS.gds")
 ids_filt_eas <- snpgdsSelectSNP(gen_eas, maf = 0.1, missing.rate = 0.1)
 pos_22_eas   <- read.gdsn(index.gdsn(gen_eas, "snp.position"))[ids_filt_eas]
 snpgdsClose(gen_eas)
-
+```
 #POBLACIÓN SUR ASIÁTICA (SAS)
-
+```r
 gen_sas <- snpgdsOpen("SAS.gds")
 ids_filt_sas <- snpgdsSelectSNP(gen_sas, maf = 0.1, missing.rate = 0.1)
 pos_22_sas   <- read.gdsn(index.gdsn(gen_sas, "snp.position"))[ids_filt_sas]
 snpgdsClose(gen_sas)
-
+```
 #SNPs
-
+```r
 posiciones_comunes <- intersect(pos_22_eur, pos_22_afr) %>%
   intersect(pos_22_amr) %>%
   intersect(pos_22_eas) %>%
@@ -1116,9 +1140,9 @@ ids_comunes_sas <- read.gdsn(index.gdsn(gen_sas, "snp.id"))[read.gdsn(index.gdsn
 mat_ld_sas <- (snpgdsLDMat(gen_sas, snp.id = ids_comunes_sas, method = "r", slide = 0)$LD)^2
 snpgdsClose(gen_sas)
 
-
+```
 #Para saber cuales son los rs (MAF>0.1) comunes donde se aplica el test de mantel
-
+```r
 gen_eur <- snpgdsOpen("EUR.gds")
 
 todos_los_rsids     <- read.gdsn(index.gdsn(gen_eur, "snp.rs.id"))
@@ -1139,9 +1163,9 @@ mantel(mat_ld_eur, mat_ld_amr, method = "pearson", permutations = 9999)
 mantel(mat_ld_eur, mat_ld_eas, method = "pearson", permutations = 9999)
 mantel(mat_ld_eur, mat_ld_sas, method = "pearson", permutations = 9999)
 
-
+```
 ## 5. ANALISIS DESCRIPTIVO DE LA BASE DE DATOS DE GENOMAD
-
+```r
 library(readxl)
 UGT1A1_gnomADfinal <- read_excel("Master en Bioinformática/AÑO 2 (2025-2026)/TFM/ANALISIS VCF_CHR37/obtencion de rs ID/metodo dsSNP/UGT1A1_gnomADfinal.xlsx")
 View(UGT1A1_gnomADfinal)
@@ -1229,10 +1253,10 @@ pheatmap(top_var,
          fontsize_row = 6,
          fontsize_col = 10,
          main = "50 variantes con mayor varianza UGT1A1 (gnomAD)")
-         
+```
 # 5.2 Nos vamos a centrar en las variantes clínicas relevantes, vamos a ver qué variabilidad de las frecuencias hay entre poblaciones
 #Vamos a construir la base de datos que queremos calcular las frecuencias, necesitamos filtarar por polaciones (sin las globales) y los rs que queremos
-
+```r
 vars_clinicas <- c(
   "rs887829",  
   "rs4148323", 
@@ -1266,9 +1290,9 @@ tabla_clinica_completa <- tabla_base[tabla_base$rs %in% vars_clinicas, ]
 #A partir de esta base de datos, calculamos las frecuencias y comparaciones. Vamos a crear una base de datos de UGT1A1_genomAD pero quitandole las columnas de frecuencias globales
 UGT1A1_filtred <- UGT1A1_gnomADfinal %>%
   select(-AF_Global, -AF_PopMax, -AF_Otros, -AF_Homnres, -AF_Mujeres)
-
+```
 # 5.3 Analisis de qué variantes son únicas en cada población 
-
+```r
 UGT1A1_filtred$diferencia_poblacional <- rs_diferencialestotales
 
 #Vamos a filtrar los resultados por las variantes que tienen un 5% mas variables entre poblaciones
@@ -1284,9 +1308,9 @@ rownames(matriz_top_variabilidad) <- variantes_top$rs
 pheatmap(matriz_top_variabilidad,
          scale = "none",
          main = "Variantes con mayor 5% variabilidad interpoblacional")
-
+```
 #AHORA VAMOS A HACER LO MISMO PERO QUEDANDONOS SOLAMENTE CON 15-20 VARIANTES 
-
+```r
 variantes15 <- head(UGT1A1_filtred[order(-UGT1A1_filtred$diferencia_poblacional), ], 15)
 
 #Graficamos y normalizamos:
@@ -1301,10 +1325,9 @@ pheatmap(matriz_15,
          scale = "row",
          color = colorRampPalette(c("white","white", "red"))(100),
          main = "Variantes de UGT1A1 con mayor variabilidad interpoblacional")
-
-
+```
 ## 6. ANALISIS DE QUE TIPO DE VARIANTES SON LAS OBTENIDAS EN LAS 22 RS CON MAF > 0.25 VÍA API DE ENSEMBL
-
+```r
 #CONFIGURACIÓN DE LOS DATOS (22 rsIDs originales):
 
 rsids <- c("rs759174", "rs28946889", "rs4148326", "rs4663971", "rs4148328", 
@@ -1403,9 +1426,9 @@ if (resp_status(res) == 200) {
   }
   
   tabla_maxima <- do.call(rbind, lista_total)
-  
+```
 #EXPORTAR A EXCEL:
-
+```r
 message("3. Escribiendo reporte masivo en Excel...")
 wb <- createWorkbook()
 addWorksheet(wb, "Anotación Completa VEP")
@@ -1422,6 +1445,7 @@ saveWorkbook(wb, "Anotacion_Completa_Ensembl_UGT1A.xlsx", overwrite = TRUE)
   
 message("¡PROCESO COMPLETADO!")
 message("Revisa tu directorio de trabajo. Se ha generado: 'Anotacion_Completa_Ensembl_UGT1A.xlsx'")
+```
   
 } else {
   stop("El servidor de Ensembl no ha respondido de forma correcta. Código: ", resp_status(res))
