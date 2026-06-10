@@ -778,6 +778,250 @@ mantel(mat_ld, mat_ld_afr, method = "pearson", permutations = 999999)
 mantel(mat_ld, mat_ld_eas, method = "pearson", permutations = 999999)
 mantel(mat_ld, mat_ld_sas, method = "pearson", permutations = 999999)
 
+# 4.3 Hacemos el Test de Mantel con los 22 rs que tienen mayor variabilidad en todas las poblaciones (MAF>0.25)
+
+gen_eur <- snpgdsOpen("EUR.gds")
+#En lugar de filtrar por posición manual, dejamos que R filtre por calidad (MAF): 
+ids_filtrados_eur <- snpgdsSelectSNP(gen_eur, 
+                                     maf = 0.25,       # Tu filtro de MAF > 0.25
+                                     missing.rate = 0.1) 
+
+#Vemos cuántas variantes ha rescatado en esta población y calculamos la matriz de DL
+message("Variantes rescatadas en EUR: ", length(ids_filtrados_eur))
+ld_grande_eur <- snpgdsLDMat(gen_eur,
+                             snp.id = ids_filtrados_eur,
+                             method = "r",
+                             slide = 0)
+
+mat_ld_22_eur <- ld_grande_eur$LD^2
+mat_ld_22_eur
+
+#Guardamos las posiciones exactas de ESTOS SNPs para poder sincronizar las matrices después
+pos_22_eur <- read.gdsn(index.gdsn(gen_eur, "snp.position"))[ids_filtrados_eur]
+
+snpgdsClose(gen_eur)
+
+#POBLACIÓN AFRICANA
+
+gen_afr <- snpgdsOpen("AFR.gds")
+ids_filt_afr <- snpgdsSelectSNP(gen_afr, maf = 0.25, missing.rate = 0.1)
+pos_22_afr   <- read.gdsn(index.gdsn(gen_afr, "snp.position"))[ids_filt_afr]
+snpgdsClose(gen_afr)
+
+#POBLACIÓN AMERICANA
+
+gen_amr <- snpgdsOpen("AMR.gds")
+ids_filt_amr <- snpgdsSelectSNP(gen_amr, maf = 0.25, missing.rate = 0.1)
+pos_22_amr   <- read.gdsn(index.gdsn(gen_amr, "snp.position"))[ids_filt_amr]
+snpgdsClose(gen_amr)
+
+#POBLACIÓN ESTE DE ASIA (EAS)
+
+gen_eas <- snpgdsOpen("EAS.gds")
+ids_filt_eas <- snpgdsSelectSNP(gen_eas, maf = 0.25, missing.rate = 0.1)
+pos_22_eas   <- read.gdsn(index.gdsn(gen_eas, "snp.position"))[ids_filt_eas]
+snpgdsClose(gen_eas)
+
+#POBLACIÓN SUR ASIÁTICA (SAS)
+
+gen_sas <- snpgdsOpen("SAS.gds")
+ids_filt_sas <- snpgdsSelectSNP(gen_sas, maf = 0.25, missing.rate = 0.1)
+pos_22_sas   <- read.gdsn(index.gdsn(gen_sas, "snp.position"))[ids_filt_sas]
+snpgdsClose(gen_sas)
+
+#Buscamos los SNPs que pasaron el filtro en TODAS las poblaciones
+
+posiciones_comunes <- intersect(pos_22_eur, pos_22_afr) %>%
+  intersect(pos_22_amr) %>%
+  intersect(pos_22_eas) %>%
+  intersect(pos_22_sas)
+
+message("¡Perfecto! SNPs hipervariables compartidos para Mantel: ", length(posiciones_comunes))
+#Vemos que comparten 14 snps con maf> 0.25
+#Volvemos a generar las matrices de DL. Como vamos  usar las mismas posiciones, no se necesita renombrar filas ni columnas a mano:
+
+#EUR
+gen_eur <- snpgdsOpen("EUR.gds")
+ids_comunes_eur <- read.gdsn(index.gdsn(gen_eur, "snp.id"))[read.gdsn(index.gdsn(gen_eur, "snp.position")) %in% posiciones_comunes]
+mat_ld_eur <- (snpgdsLDMat(gen_eur, snp.id = ids_comunes_eur, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_eur)
+
+#AFR
+
+gen_afr <- snpgdsOpen("AFR.gds")
+ids_comunes_afr <- read.gdsn(index.gdsn(gen_afr, "snp.id"))[read.gdsn(index.gdsn(gen_afr, "snp.position")) %in% posiciones_comunes]
+mat_ld_afr <- (snpgdsLDMat(gen_afr, snp.id = ids_comunes_afr, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_afr)
+
+#AMR 
+
+gen_amr <- snpgdsOpen("AMR.gds")
+ids_comunes_amr <- read.gdsn(index.gdsn(gen_amr, "snp.id"))[read.gdsn(index.gdsn(gen_amr, "snp.position")) %in% posiciones_comunes]
+mat_ld_amr <- (snpgdsLDMat(gen_amr, snp.id = ids_comunes_amr, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_amr)
+
+#EAS
+
+gen_eas <- snpgdsOpen("EAS.gds")
+ids_comunes_eas <- read.gdsn(index.gdsn(gen_eas, "snp.id"))[read.gdsn(index.gdsn(gen_eas, "snp.position")) %in% posiciones_comunes]
+mat_ld_eas <- (snpgdsLDMat(gen_eas, snp.id = ids_comunes_eas, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_eas)
+
+#Recálculo SAS
+
+gen_sas <- snpgdsOpen("SAS.gds")
+ids_comunes_sas <- read.gdsn(index.gdsn(gen_sas, "snp.id"))[read.gdsn(index.gdsn(gen_sas, "snp.position")) %in% posiciones_comunes]
+mat_ld_sas <- (snpgdsLDMat(gen_sas, snp.id = ids_comunes_sas, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_sas)
+
+
+#########Para saber cuales son los 14 rs comunes donde se aplica el test de mantel
+#Abrimos cualquiera de los archivos GDS
+gen_eur <- snpgdsOpen("EUR.gds")
+
+#Extraemos todos los rsIDs y todas las posiciones globales del archivo
+todos_los_rsids     <- read.gdsn(index.gdsn(gen_eur, "snp.rs.id"))
+todas_las_posiciones <- read.gdsn(index.gdsn(gen_eur, "snp.position"))
+
+#Filtramos los rsIDs que coincidan exactamente con tus 14 posiciones comunes
+rsids_14_comunes <- todos_los_rsids[todas_las_posiciones %in% posiciones_comunes]
+
+#Cerramos el archivo para evitar bloqueos de memoria
+snpgdsClose(gen_eur)
+
+#Ver exactamente cuales son las 14 coordenadas genómicas en el genoma de referencia GRCh37
+print(posiciones_comunes)
+
+#TEST DE MANTEL 
+
+library(vegan)
+
+message("--- RESULTADOS DEL TEST DE MANTEL (SET EXPANDIDO) ---")
+mantel(mat_ld_eur, mat_ld_afr, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_amr, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_eas, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_sas, method = "pearson", permutations = 9999)
+
+#HACER EL MISMO ANALISIS DE LD Y TEST DE MANTEL CON VARIANTES MAF>0.1#
+
+gen_eur <- snpgdsOpen("EUR.gds")
+
+ids_filtrados_eur <- snpgdsSelectSNP(gen_eur, 
+                                     maf = 0.1,       # Tu filtro de MAF > 0.25
+                                     missing.rate = 0.1) 
+
+#Ver cuántas variantes ha rescatado en esta población
+message("Variantes rescatadas en EUR: ", length(ids_filtrados_eur))
+
+#Calculamos la matriz de DL con el set grande
+ld_grande_eur <- snpgdsLDMat(gen_eur,
+                             snp.id = ids_filtrados_eur,
+                             method = "r",
+                             slide = 0)
+
+mat_ld_22_eur <- ld_grande_eur$LD^2
+mat_ld_22_eur
+
+#Guardamos las posiciones exactas de ESTOS SNPs para poder sincronizar las matrices después
+pos_22_eur <- read.gdsn(index.gdsn(gen_eur, "snp.position"))[ids_filtrados_eur]
+
+snpgdsClose(gen_eur)
+
+#POBLACIÓN AFRICANA
+gen_afr <- snpgdsOpen("AFR.gds")
+ids_filt_afr <- snpgdsSelectSNP(gen_afr, maf = 0.1, missing.rate = 0.1)
+pos_22_afr   <- read.gdsn(index.gdsn(gen_afr, "snp.position"))[ids_filt_afr]
+snpgdsClose(gen_afr)
+
+#POBLACIÓN AMERICANA
+
+gen_amr <- snpgdsOpen("AMR.gds")
+ids_filt_amr <- snpgdsSelectSNP(gen_amr, maf = 0.1, missing.rate = 0.1)
+pos_22_amr   <- read.gdsn(index.gdsn(gen_amr, "snp.position"))[ids_filt_amr]
+snpgdsClose(gen_amr)
+
+#POBLACIÓN ESTE DE ASIA (EAS)
+
+gen_eas <- snpgdsOpen("EAS.gds")
+ids_filt_eas <- snpgdsSelectSNP(gen_eas, maf = 0.1, missing.rate = 0.1)
+pos_22_eas   <- read.gdsn(index.gdsn(gen_eas, "snp.position"))[ids_filt_eas]
+snpgdsClose(gen_eas)
+
+#POBLACIÓN SUR ASIÁTICA (SAS)
+
+gen_sas <- snpgdsOpen("SAS.gds")
+ids_filt_sas <- snpgdsSelectSNP(gen_sas, maf = 0.1, missing.rate = 0.1)
+pos_22_sas   <- read.gdsn(index.gdsn(gen_sas, "snp.position"))[ids_filt_sas]
+snpgdsClose(gen_sas)
+
+#SNPs
+
+posiciones_comunes <- intersect(pos_22_eur, pos_22_afr) %>%
+  intersect(pos_22_amr) %>%
+  intersect(pos_22_eas) %>%
+  intersect(pos_22_sas)
+
+message("¡Perfecto! SNPs hipervariables compartidos para Mantel: ", length(posiciones_comunes))
+
+#Recálculo EUR
+
+gen_eur <- snpgdsOpen("EUR.gds")
+ids_comunes_eur <- read.gdsn(index.gdsn(gen_eur, "snp.id"))[read.gdsn(index.gdsn(gen_eur, "snp.position")) %in% posiciones_comunes]
+mat_ld_eur <- (snpgdsLDMat(gen_eur, snp.id = ids_comunes_eur, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_eur)
+
+#AFR 
+
+gen_afr <- snpgdsOpen("AFR.gds")
+ids_comunes_afr <- read.gdsn(index.gdsn(gen_afr, "snp.id"))[read.gdsn(index.gdsn(gen_afr, "snp.position")) %in% posiciones_comunes]
+mat_ld_afr <- (snpgdsLDMat(gen_afr, snp.id = ids_comunes_afr, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_afr)
+
+#AMR
+
+gen_amr <- snpgdsOpen("AMR.gds")
+ids_comunes_amr <- read.gdsn(index.gdsn(gen_amr, "snp.id"))[read.gdsn(index.gdsn(gen_amr, "snp.position")) %in% posiciones_comunes]
+mat_ld_amr <- (snpgdsLDMat(gen_amr, snp.id = ids_comunes_amr, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_amr)
+
+#EAS
+
+gen_eas <- snpgdsOpen("EAS.gds")
+ids_comunes_eas <- read.gdsn(index.gdsn(gen_eas, "snp.id"))[read.gdsn(index.gdsn(gen_eas, "snp.position")) %in% posiciones_comunes]
+mat_ld_eas <- (snpgdsLDMat(gen_eas, snp.id = ids_comunes_eas, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_eas)
+
+#SAS
+
+gen_sas <- snpgdsOpen("SAS.gds")
+ids_comunes_sas <- read.gdsn(index.gdsn(gen_sas, "snp.id"))[read.gdsn(index.gdsn(gen_sas, "snp.position")) %in% posiciones_comunes]
+mat_ld_sas <- (snpgdsLDMat(gen_sas, snp.id = ids_comunes_sas, method = "r", slide = 0)$LD)^2
+snpgdsClose(gen_sas)
+
+
+#Para saber cuales son los rs (MAF>0.1) comunes donde se aplica el test de mantel
+
+gen_eur <- snpgdsOpen("EUR.gds")
+
+todos_los_rsids     <- read.gdsn(index.gdsn(gen_eur, "snp.rs.id"))
+todas_las_posiciones <- read.gdsn(index.gdsn(gen_eur, "snp.position"))
+
+rsids_comunes <- todos_los_rsids[todas_las_posiciones %in% posiciones_comunes]
+snpgdsClose(gen_eur)
+
+print(posiciones_comunes)
+
+#EJECUCIÓN DEL TEST DE MANTEL ROBUSTO(MAF>0.1)
+
+library(vegan)
+
+message("--- RESULTADOS DEL TEST DE MANTEL (SET EXPANDIDO) ---")
+mantel(mat_ld_eur, mat_ld_afr, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_amr, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_eas, method = "pearson", permutations = 9999)
+mantel(mat_ld_eur, mat_ld_sas, method = "pearson", permutations = 9999)
+
+
 ## 5. ANALISIS DESCRIPTIVO DE LA BASE DE DATOS DE GENOMAD
 
 library(readxl)
