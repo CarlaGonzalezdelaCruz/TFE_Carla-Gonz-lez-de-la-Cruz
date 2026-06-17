@@ -892,33 +892,8 @@ pdf("LD_UGT1A1_VariantesRelevantesClinica_xPoblaciones.pdf",
     
 dev.off()
 ```
-# 4.2 Hacer test estadistico para comparar el LD de las diferentes poblaciones
-```r
-library(vegan)
 
-#Coger las matrices calculadas para cada poblacion y poner el mismo orden.
-#Primero aplicamos el nombre de las columnas que tenemos para la matriz de europa(mat_ld) al siguiente:
-
-colnames(mat_ld_afr) <- labels
-rownames(mat_ld_afr) <- labels
-
-colnames(mat_ld_amr) <- labels
-rownames(mat_ld_amr) <- labels
-
-colnames(mat_ld_eas) <- labels
-rownames(mat_ld_eas) <- labels
-
-colnames(mat_ld_eas) <- labels
-rownames(mat_ld_eas) <- labels
-
-#Aplicar Test de Mantel cogiendo como indicativo la poblacion europea
-
-mantel(mat_ld, mat_ld_amr, method = "pearson", permutations = 999999)
-mantel(mat_ld, mat_ld_afr, method = "pearson", permutations = 999999)
-mantel(mat_ld, mat_ld_eas, method = "pearson", permutations = 999999)
-mantel(mat_ld, mat_ld_sas, method = "pearson", permutations = 999999)
-```
-# 4.3 Hacemos el Test de Mantel con los 22 rs que tienen mayor variabilidad en todas las poblaciones (MAF>0.25)
+# 4.2 Hacemos el Test de Mantel con los 22 rs que tienen mayor variabilidad en todas las poblaciones (MAF>0.25)
 ```r
 gen_eur <- snpgdsOpen("EUR.gds")
 #En lugar de filtrar por posición manual, dejamos que R filtre por calidad (MAF): 
