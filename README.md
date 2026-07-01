@@ -1,28 +1,24 @@
-# TFE_Carla-Gonzalez-de-la-Cruz: Relevancia clínica poblacional de variantes del gen UGT1A1 asociadas a toxicidad por Irinotecan
+# TFE_Carla-Gonzalez-de-la-Cruz
 
-Este repositorio contiene el flujo de trabajo bioinformático desarrollado para el Trabajo Fin de Máster:
-
+Este repositorio contiene el flujo de trabajo bioinformático desarrollado para el trabajo titulado: 
 **“Relevancia clínica poblacional de variantes del gen UGT1A1 asociadas a toxicidad por irinotecán”**
 
 El objetivo principal es caracterizar la variabilidad genética del gen *UGT1A1* en distintas poblaciones humanas, estudiar los patrones de desequilibrio de ligamiento (LD) entre variantes farmacogenéticas relevantes y evaluar su posible impacto en la respuesta clínica al tratamiento con irinotecán.Se utilizan los datos genómicos procedentes de bases de datos públicas: 1000genomes y genomAD v2.1.1. 
 
 ## Fundamentación biológica
 
-El gen *UGT1A1* codifica una enzima clave en la glucuronidación del metabolito activo del irinotecán (SN-38). Variantes genéticas en este gen pueden modificar la actividad enzimática y aumentar el riesgo de desarrollar efectos adversos graves, especialmente neutropenia severa, toxicidad gastrointestinal y alteraciones en el metabolismo del fármaco. 
+El gen *UGT1A1* codifica una enzima clave en la glucuronidación del metabolito activo del irinotecán (SN-38). Variantes genéticas en este gen pueden modificar la actividad enzimática y aumentar el riesgo de desarrollar efectos adversos graves, especialmente neutropenia severa y toxicidad gastrointestinal.
 La frecuencia de estas variantes y su patrón de herencia conjunta (desequilibrio de ligamiento) difieren entre poblaciones, lo que puede tener implicaciones relevantes en farmacogenética y medicina personalizada.
 
 ## Objetivos del estudio
 
 Este análisis pretende:
 
-1. Obtener todas las variantes localizadas en la región genómica de UGT1A1.
-2. Comparar las frecuencias alélicas entre poblaciones mundiales.
-3. Anotar las variantes mediante identificadores rsID.
-4. Identificar variantes farmacogenéticas de interés clínico.
-5. Analizar la estructura de desequilibrio de ligamiento dentro del gen.
-6. Comparar los patrones de LD entre poblaciones.
-7. Estudiar la diversidad genética poblacional utilizando gnomAD.
-8. Realizar la anotación funcional de variantes relevantes.
+1)	Consultar bases de datos públicas para procesamiento de muestras de secuenciación del gen UGT1A1.
+2)	Caracterizar las variantes encontradas en los datos de secuenciación del gen UGT1A1 alineados con el cromosoma de referencia hg19. 
+3)	Analizar el desequilibrio de ligamiento de las diferentes variantes genéticas en las diferentes poblaciones. 
+4)	Describir frecuencias poblacionales de variantes del gen UGT1A1 asociadas a toxicidad por Irinotecan y cómo se distribuyen en las diferentes poblaciones. 
+
 
 ## La metodología empleada es la siguiente: 
 
@@ -43,7 +39,6 @@ Se calculan las frecuencias alélicas de cada variante para las principales pobl
 * SAS (Asia del Sur)
 * AMR (América)
 
-Posteriormente se integran todas las frecuencias en una única tabla comparativa. Este análisis permite identificar variantes. 
 
 ### 3. Asignación de rsID y normalización de variantes
 
@@ -110,8 +105,7 @@ httr2
 * Tablas de frecuencias alélicas por población.
 * Variantes anotadas con rsID.
 * Matrices de desequilibrio de ligamiento.
-* Heatmap comparativos entre poblaciones.
-* Resultados de diversidad poblacional
+* Heatmap comparativos entre poblaciones con las variantes con mayor variabilidad interétnica.
 * Anotaciones funcionales de variantes relevantes.
 * Interpretación de resultados.
 ---
